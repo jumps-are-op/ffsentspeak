@@ -1,0 +1,35 @@
+FFsentspeak - A sent to a video converter
+
+Made by:
+\    Jumps Are Op.
+# Jumps Are O.P
+
+Sent is a suckless utility that displays a text file
+as a set of images into an X11 window.
+
+While sent is good for presentations, some people may not be
+able to do a full length presentation, because of time, being tired,
+or other factors that may effect the quality of the presentation.
+\
+\Or simply for not having a good mic, like mine. :(
+
+FFsentspeak provides a robotic way to convert sent
+presentations to a simple "show and read text" video.
+
+FFsentspeak is so small, it's less than
+100 lines of POSIX shell code (including comments.)
+
+FFsentspeak uses:
+\- Sent & pdfimages to make the images.
+#- Sent & pdf-images to make the images.
+- Espeak to turn text into speach.
+- FFmpeg to mix the images with the speech
+  and turn them into a video.
+
+FFsentspeak modifies the sent file format with the following modifications:
+- Lines starting with a # wont be displayed.
+- Lines starting with a \ and then a character that is not # or @ wont be read.
+\- Lines starting with a double # (a ##) wont be displayed or read.
+#- Lines starting with a double # (a ##) wont be displayed or red.
+# You can use these new modifications to make espeak read text 
+# without displaying it or to display text without making espeak reading it.

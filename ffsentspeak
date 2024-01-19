@@ -1,0 +1,98 @@
+#!/bin/sh --
+set -ue; export POSIXLY_CORRECT=1
+# BY: Jumps Are Op. (jumpsareop@gmail.com)
+# LICENSE: GPLv3-or-later
+
+# To make this program works, you need to install:
+# *** sent, pdfimages, espeak, and ffmpeg. ***
+# And you need to patch your sent source code patched with the
+# pdf patch (see tools.suckless.org/sent) and the following patch:
+#--- sent.c	2024-01-01 01:08:14.764727308 +0300
+#+++ sent.c	2024-01-01 01:07:09.568413840 +0300
+#@@ -136,6 +136,7 @@
+# static Clr *sc;
+# static Fnt *fonts[NUMFONTSCALES];
+# static int running = 1;
+#+static int dopdf;
+#
+# static void (*handler[LASTEvent])(XEvent *) = {
+# 	[ButtonPress] = bpress,
+#@@ -573,6 +574,12 @@
+# 		}
+# 	}
+# 
+#+	if(dopdf){
+#+		xdraw();
+#+		pdf();
+#+		return;
+#+	}
+#+
+# 	while (running) {
+# 		XNextEvent(xw.dpy, &ev);
+# 		if (handler[ev.type])
+#@@ -784,6 +791,9 @@
+# 	case 'i':
+# 		use_inverted_colors = 1;
+# 		break;
+#+	case 'g':
+#+		dopdf = true;
+#+		break;
+# 	default:
+# 		usage();
+# 	} ARGEND
+
+# config
+img=png vid=mp4 credits=1 threads=3
+ffmpegf="-hide_banner -loglevel warning"
+espeakf="-ven-us"
+
+[ "$#" -gt 1 ] && { printf %s\\n "USAGE: $0 [SENT_FILE] [>OUT]" >&2; exit 1;}
+
+txt=$(cat <"$1")
+mkdir slides
+trap 'cd ..; rm -rf slides; exit' EXIT; trap exit INT QUIT HUP TERM
+cd slides
+
+echo "Generating frames..." >&2
+sent -g <<-EOF
+	$txt
+	${credits:+
+	Made using FFsentspeak.
+	Which can be downloaded for free at:
+	https://github.com/jumps-are-op/ffsentspeak
+\\
+	$(date)}
+EOF
+pdfimages -"$img" slides.pdf slides
+
+echo "Generating audio and mixing frames..." >&2
+set -- slides-*."$img"
+i=1 buf=
+while IFS= read -r line;do line=${line##@*} line=${line#'#'} line=${line##'#'*}
+	case $line in \\['@#'])line=${line#\\};; esac
+	[ "$line" ] && buf="$buf ${line##\\*}" && continue
+	[ ! "$buf" ] && continue
+	f=$(printf '%.3u' "$i")
+	{
+		espeak $espeakf -w "slide-$f.wav" -- ". $buf"
+		ffmpeg $ffmpegf 2>/dev/null -i "$1" -i "slide-$f.wav" \
+			-af adelay=1s:all=true -r 3 "slide-$f.$vid" </dev/null
+	} &
+	[ $((i % threads)) = 0 ] && wait
+	shift
+	i=$((i+1)) buf=
+done <<-EOF
+	$txt
+
+	${credits:+Made using FFsentspeak.}
+
+EOF
+wait
+
+echo "Turning frames into a video..." >&2
+printf "file '%s'\n" slide-*."$vid" >vids.txt
+[ -t 1 ] && ffmpeg $ffmpegf -f concat -i vids.txt ../out."$vid" ||
+	ffmpeg $ffmpegf -f concat -i vids.txt /dev/stdout
+rm -rf ../slides
+trap - exit
+echo Done. >&2
